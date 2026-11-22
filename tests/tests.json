@@ -1,78 +1,56 @@
 [
   {
-    "name": "Apply a camera input transform before the film stock",
+    "name": "Apply built-in film LUTs without file uploads",
     "sanity": true,
     "viewport": "desktop",
     "covers": [
-      "camera profile selection",
-      "3D .cube LUT parsing",
-      "trilinear LUT application before creative stock rendering",
-      "invalid LUT validation"
+      "automatic per-stock 3D LUT generation",
+      "stock selection and LUT application",
+      "no manual LUT upload workflow"
     ],
-    "description": "Verifies a camera input LUT is loaded, validated and applied before the selected film emulation.",
+    "description": "Verifies selecting any film stock automatically supplies and applies its built-in creative 3D LUT.",
     "steps": [
-      "Open Video Lab and import a supported clip",
-      "Choose the matching camera profile",
-      "Load a valid 3D .cube input LUT",
-      "Select a film stock and compare the preview",
-      "Try an invalid or incomplete .cube file"
+      "Open Video Lab and import a supported Rec.709 video",
+      "Select Kodak Portra 400, then Kodak Gold 200 and Fujifilm Velvia 100F",
+      "Compare the preview after each stock selection",
+      "Confirm no camera LUT upload control is present"
     ],
-    "expected": "A valid LUT is applied before the film stock, its name and grid size are shown, and invalid LUT files produce a visible error."
+    "expected": "Each stock applies its own built-in 3D colour transform automatically, and the interface has no manual LUT upload or remove control."
   },
   {
-    "name": "Browse film families and render a graded video",
+    "name": "Browse and render film stocks with stock texture",
     "viewport": "desktop",
     "covers": [
       "shared film catalogue",
       "film family filtering",
       "video playback",
+      "stock-specific grain and halation",
       "WebM export"
     ],
-    "description": "Verifies the expanded shared stock library works in the video workspace.",
+    "description": "Verifies the stock browser, playback, film texture processing and rendered video workflow remain available.",
     "steps": [
-      "Open Video Lab",
-      "Search for Vision3 500T",
-      "Select the stock and play a supported clip",
+      "Open Video Lab and import a supported Rec.709 clip",
+      "Search for Vision3 500T and select it",
+      "Play the clip and compare it with Portra 400",
       "Render the video"
     ],
-    "expected": "The selected stock grades the preview and a WebM file is produced."
+    "expected": "The selected stock visibly changes the grade, grain and highlight treatment, playback works, and a WebM render is produced."
   },
   {
-    "name": "Use Rec.709 footage without an input LUT",
+    "name": "Show input colour-space guidance on mobile",
     "viewport": "mobile",
     "covers": [
-      "Rec.709 source workflow",
-      "mobile camera transform controls",
-      "source LUT removal"
+      "mobile source-footage guidance",
+      "Rec.709 input expectation",
+      "manual LUT upload removal"
     ],
-    "description": "Verifies standard display-referred footage can be graded without an additional camera input transform.",
+    "description": "Verifies the simplified source guidance is readable on mobile and does not imply unsupported camera transforms.",
     "steps": [
       "Open Video Lab on mobile",
-      "Select Rec.709 / Standard",
-      "Import a supported video",
-      "Leave the input LUT empty and choose a stock"
+      "Import a supported Rec.709 video",
+      "Read the source-footage guidance",
+      "Select a film stock and open Adjust"
     ],
-    "expected": "The Rec.709 clip can be processed without loading a camera LUT and the stock controls remain usable."
-  },
-  {
-    "name": "Film stocks have distinct rendering signatures",
-    "viewport": "desktop",
-    "covers": [
-      "stock-specific channel response",
-      "negative and reversal tone curves",
-      "black-and-white spectral mixes",
-      "luminance-shaped deterministic film grain",
-      "highlight colour response"
-    ],
-    "description": "Checks that representative negative, slide, cinema, monochrome and instant stocks use distinct response signatures rather than a shared generic filter.",
-    "steps": [
-      "Open Video Lab and import a Rec.709 clip with skin, foliage, sky and bright highlights",
-      "Compare Kodak Portra 400, Gold 200 and Ektar 100",
-      "Compare Fujifilm Velvia 100F and Provia 400X",
-      "Compare Ilford HP5, Kodak T-Max 400 and Tri-X",
-      "Compare Vision3 50D, 250D and 500T",
-      "Pause on a frame and verify the grain is stable; play and verify grain evolves over time"
-    ],
-    "expected": "Each selected stock produces a visibly distinct palette and tonal response. Black-and-white stocks use different spectral mixes and grain character. The same paused frame remains deterministic while moving frames receive evolving grain."
+    "expected": "The guidance states that built-in stock LUTs expect Rec.709 and that Log/HDR needs prior normalisation; no file upload control is shown."
   }
 ]
