@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Download, Film, Pause, Play, RotateCcw, Upload } from 'lucide-react';
 import { filmCatalog } from './filmCatalog';
-import { applyCubeLut, parseCube, type CubeLut } from './cubeLut';
 import { applyFilmEmulation } from './filmEmulation';
 
 const videoStocks = [
@@ -30,21 +29,7 @@ const videoStocks = [
   { id: '2383', name: 'Kodak 2383 Print Film', family: 'Print / output', warmth: 2, contrast: 120, saturation: 104, grain: 8, halation: 2 },
 ];
 
-const sourceProfiles = [
-  { id: 'rec709', name: 'Rec.709 / Standard', detail: 'Display-referred footage.', contrast: 1, saturation: 1, brightness: 1 },
-  { id: 'slog3', name: 'Sony S-Log3 / S-Gamut3.Cine', detail: 'Sony log footage · approximate preview normalization.', contrast: 1.2, saturation: 1.12, brightness: 1.08 },
-  { id: 'slog2', name: 'Sony S-Log2 / S-Gamut', detail: 'Sony legacy log · approximate preview normalization.', contrast: 1.16, saturation: 1.1, brightness: 1.06 },
-  { id: 'scinetone', name: 'Sony S-Cinetone', detail: 'Soft display-referred cinema profile.', contrast: 1.02, saturation: 1.02, brightness: 1 },
-  { id: 'clog3', name: 'Canon Log 3 / Cinema Gamut', detail: 'Canon log footage · approximate preview normalization.', contrast: 1.18, saturation: 1.1, brightness: 1.07 },
-  { id: 'clog2', name: 'Canon Log 2 / Cinema Gamut', detail: 'Canon wide dynamic range log · approximate preview normalization.', contrast: 1.2, saturation: 1.12, brightness: 1.08 },
-  { id: 'vlog', name: 'Panasonic V-Log / V-Gamut', detail: 'Panasonic log footage · approximate preview normalization.', contrast: 1.2, saturation: 1.12, brightness: 1.08 },
-  { id: 'braw', name: 'Blackmagic Film Gen 5', detail: 'BRAW Film footage · approximate preview normalization.', contrast: 1.18, saturation: 1.12, brightness: 1.07 },
-  { id: 'redlog', name: 'RED Log3G10 / REDWideGamutRGB', detail: 'RED log footage · approximate preview normalization.', contrast: 1.2, saturation: 1.12, brightness: 1.08 },
-  { id: 'dlogm', name: 'DJI D-Log M', detail: 'DJI D-Log M footage · approximate preview normalization.', contrast: 1.16, saturation: 1.1, brightness: 1.06 },
-  { id: 'hlg', name: 'HLG / Rec.2020', detail: 'HDR HLG · approximate SDR preview mapping.', contrast: 1.12, saturation: 1.04, brightness: 0.98 },
-  { id: 'pq', name: 'HDR10 / PQ (ST 2084)', detail: 'PQ HDR footage · approximate SDR preview mapping.', contrast: 1.14, saturation: 1.02, brightness: 0.94 },
-  { id: 'samsunghdr', name: 'Samsung HDR10 / Rec.2020', detail: 'Phone HDR footage · approximate SDR preview mapping.', contrast: 1.12, saturation: 1.04, brightness: 0.96 },
-];
+
 
 type Knobs = { exposure: number; contrast: number; saturation: number; warmth: number; grain: number; halation: number; bloom: number; vignette: number };
 const initial: Knobs = { exposure: 0, contrast: 0, saturation: 0, warmth: 0, grain: 0, halation: 0, bloom: 0, vignette: 0 };
@@ -59,8 +44,6 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
   const [url, setUrl] = useState('');
   const [fileName, setFileName] = useState('');
   const [stockId, setStockId] = useState('vision3_250d');
-  const [sourceProfileId, setSourceProfileId] = useState('rec709');
-  const [inputLut, setInputLut] = useState<CubeLut | null>(null);
   const [family, setFamily] = useState('All stocks');
   const [search, setSearch] = useState('');
   const [knobs, setKnobs] = useState<Knobs>(initial);
@@ -71,7 +54,6 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'stocks' | 'adjust'>('stocks');
   const stock = videoStocks.find(s => s.id === stockId) || videoStocks[0];
-  const sourceProfile = sourceProfiles.find(p => p.id === sourceProfileId) || sourceProfiles[0];
   const filtered = useMemo(() => videoStocks.filter(s => (family === 'All stocks' || s.family === family) && (s.name + s.family).toLowerCase().includes(search.toLowerCase())), [family, search]);
 
   function drawFrame() {
@@ -84,18 +66,9 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const exposure = Math.pow(2, knobs.exposure / 100);
-    const contrast = Math.max(0.2, (stock.contrast + knobs.contrast) / 100);
-    const saturation = Math.max(0, (stock.saturation + knobs.saturation) / 100);
-    const warm = stock.warmth + knobs.warmth;
     ctx.drawImage(video, 0, 0, w, h);
-    // Technical input transform: apply the selected camera manufacturer's .cube LUT first.
-    if (inputLut) {
-      const sourceFrame = ctx.getImageData(0, 0, w, h);
-      ctx.putImageData(applyCubeLut(sourceFrame, inputLut), 0, 0);
-    }
-    // Per-stock colour response, tone curve, monochrome spectral mix and film grain.
-    // The input camera LUT above is applied first, then this creative negative/reversal response.
+    // Every stock has an automatically generated, cached 17-point 3D creative LUT.
+    // Grain, stock-specific texture and halation are layered after the LUT.
     const frame = ctx.getImageData(0, 0, w, h);
     applyFilmEmulation(frame, {
       id: stock.id,
@@ -138,7 +111,7 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
     };
     animationRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationRef.current);
-  }, [url, stockId, knobs, sourceProfileId]);
+  }, [url, stockId, knobs]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -161,16 +134,6 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
     else { video.pause(); setPlaying(false); }
   }
   function update(key: keyof Knobs, value: number) { setKnobs(prev => ({ ...prev, [key]: value })); }
-  async function loadInputLut(file?: File) {
-    if (!file) return;
-    try {
-      const parsed = parseCube(await file.text());
-      setInputLut(parsed);
-      setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read this .cube LUT.');
-    }
-  }
   function stopRecording() { if (recorderRef.current?.state === 'recording') recorderRef.current.stop(); }
   function exportVideo() {
     const video = videoRef.current;
@@ -223,15 +186,9 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
         <aside className="control-panel video-controls">
           <div style={{ border: '1px solid #45453a', background: '#171813', padding: 15, marginBottom: 14 }}>
             <div className="eyebrow">STEP 01 / SOURCE FOOTAGE</div>
-            <label htmlFor="source-profile" style={{ display: 'block', fontSize: 12, margin: '8px 0' }}>Camera / recording profile</label>
-            <select id="source-profile" value={sourceProfileId} onChange={e => setSourceProfileId(e.target.value)} style={{ width: '100%', background: '#22231d', color: '#e8e5dc', border: '1px solid #5c5a49', padding: 10, fontSize: 11 }}>
-              {sourceProfiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-            </select>
-            <p style={{ color: '#c4b994', fontSize: 11, lineHeight: 1.5 }}>{sourceProfile.detail}</p>
-            <label style={{ display: 'block', marginTop: 10, fontSize: 11 }}>Camera input transform (.cube LUT)</label>
-            <label className="upload-button" style={{ display: 'inline-flex', marginTop: 7 }}><Upload size={13}/> {inputLut ? 'REPLACE INPUT LUT' : 'LOAD CAMERA LUT'}<input type="file" accept=".cube,text/plain" onChange={e => loadInputLut(e.target.files?.[0])}/></label>
-            <small style={{ display: 'block', color: '#c4b994', fontSize: 10, lineHeight: 1.5, marginTop: 7 }}>{inputLut ? 'Applied before the creative film stock: ' + inputLut.title + ' (' + inputLut.size + '³).' : 'Choose the matching manufacturer technical LUT for the selected camera log/gamut. No guessed contrast lift is applied. Rec.709 footage can be used without an input LUT.'}</small>
-            {inputLut && <button className="reset-btn" style={{ marginTop: 8 }} onClick={() => setInputLut(null)}>REMOVE INPUT LUT</button>}
+            <strong style={{ display: 'block', fontSize: 12, margin: '9px 0 5px' }}>BUILT-IN STOCK LUT ENGINE</strong>
+            <p style={{ color: '#c4b994', fontSize: 11, lineHeight: 1.55, margin: 0 }}>Every film stock includes its own automatically applied 3D colour transform. No LUT files or manual setup required.</p>
+            <small style={{ display: 'block', color: '#c4b994', fontSize: 10, lineHeight: 1.5, marginTop: 8 }}>Input: Rec.709 / standard display-referred footage. Convert camera Log or HDR footage to Rec.709 before importing; camera-specific input transforms are not included yet.</small>
           </div>
           <div className="panel-tabs"><button className={tab === 'stocks' ? 'active' : ''} onClick={() => setTab('stocks')}><Film size={15}/> FILM STOCKS</button><button className={tab === 'adjust' ? 'active' : ''} onClick={() => setTab('adjust')}>ADJUST</button></div>
           {tab === 'stocks' ? <div className="stock-browser"><div className="browser-heading"><div><div className="eyebrow">MOTION ARCHIVE</div><h2>Film library <span>{videoStocks.length}</span></h2></div><Film size={17}/></div><div className="search-box"><input placeholder="Find a film stock..." value={search} onChange={e => setSearch(e.target.value)}/></div><div className="family-list">{families.map(f => <button key={f} className={family === f ? 'selected' : ''} onClick={() => setFamily(f)}>{f}</button>)}</div><div className="stock-list">{filtered.map(s => <button key={s.id} className={'stock-item ' + (stockId === s.id ? 'chosen' : '')} onClick={() => setStockId(s.id)}><div className="stock-swatch"/><div className="stock-info"><strong>{s.name}</strong><span>{s.family}</span></div>{stockId === s.id && <span className="selected-check">●</span>}</button>)}</div><div className="panel-foot"><span>VIDEO STOCK PROFILES</span><span>GRAINROOM</span></div></div> : <div className="adjust-panel"><div className="browser-heading"><div><div className="eyebrow">FINE TUNING</div><h2>Shape the motion</h2></div></div><div className="active-profile"><span>ACTIVE STOCK</span><strong>{stock.name}</strong><small>{stock.family}</small></div>{([['exposure','Exposure',-100,100],['contrast','Contrast',-50,50],['saturation','Saturation',-100,100],['warmth','Warmth',-50,50],['grain','Film grain',0,100],['halation','Halation',0,100],['bloom','Bloom',0,100],['vignette','Vignette',0,100]] as const).map(([key,label,min,max]) => <div className="slider-row" key={key}><div><label>{label}</label><output>{knobs[key] > 0 ? '+' : ''}{knobs[key]}</output></div><input type="range" min={min} max={max} value={knobs[key]} onChange={e => update(key, Number(e.target.value))}/></div>)}<button className="reset-wide" onClick={() => setKnobs(initial)}><RotateCcw size={14}/> RESET ALL</button><div className="panel-foot"><span>LIVE FRAME ADJUSTMENTS</span><span>NON-DESTRUCTIVE PREVIEW</span></div></div>}
