@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Download, Film, Pause, Play, RotateCcw, Upload } from 'lucide-react';
 import { filmCatalog } from './filmCatalog';
 import { applyCubeLut, parseCube, type CubeLut } from './cubeLut';
+import { applyFilmEmulation } from './filmEmulation';
 
 const videoStocks = [
   ...filmCatalog.map(stock => ({
@@ -93,40 +94,19 @@ export default function VideoLab({ onBack }: { onBack: () => void }) {
       const sourceFrame = ctx.getImageData(0, 0, w, h);
       ctx.putImageData(applyCubeLut(sourceFrame, inputLut), 0, 0);
     }
-    // Creative film-stock rendering follows the camera normalization stage.
-    const normalized = document.createElement('canvas');
-    normalized.width = w; normalized.height = h;
-    normalized.getContext('2d')?.drawImage(canvas, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-    ctx.filter = 'brightness(' + exposure + ') contrast(' + contrast + ') saturate(' + saturation + ') sepia(' + Math.max(0, warm) / 100 + ') hue-rotate(' + (warm < 0 ? Math.abs(warm) * 0.7 : 0) + 'deg)';
-    ctx.drawImage(normalized, 0, 0, w, h);
-    ctx.restore();
-    if (stock.family === 'Black & white') {
-      const frame = ctx.getImageData(0, 0, w, h);
-      const d = frame.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const y = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-        d[i] = d[i + 1] = d[i + 2] = y;
-      }
-      ctx.putImageData(frame, 0, 0);
-    }
-    const grain = Math.max(0, stock.grain + knobs.grain);
-    if (grain > 0) {
-      const noise = document.createElement('canvas');
-      noise.width = 128; noise.height = 128;
-      const nctx = noise.getContext('2d');
-      if (nctx) {
-        const image = nctx.createImageData(128, 128);
-        for (let i = 0; i < image.data.length; i += 4) {
-          const n = Math.random() * 255;
-          image.data[i] = image.data[i + 1] = image.data[i + 2] = n;
-          image.data[i + 3] = grain * 1.3;
-        }
-        nctx.putImageData(image, 0, 0);
-        ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.drawImage(noise, 0, 0, w, h); ctx.restore();
-      }
-    }
+    // Per-stock colour response, tone curve, monochrome spectral mix and film grain.
+    // The input camera LUT above is applied first, then this creative negative/reversal response.
+    const frame = ctx.getImageData(0, 0, w, h);
+    applyFilmEmulation(frame, {
+      id: stock.id,
+      family: stock.family,
+      warmth: stock.warmth,
+      contrast: stock.contrast / 100,
+      saturation: stock.saturation / 100,
+      grain: stock.grain / 100,
+      halation: stock.halation / 100,
+    }, knobs, Math.floor((video.currentTime || 0) * 24));
+    ctx.putImageData(frame, 0, 0);
     if (stock.halation + knobs.halation > 0) {
       ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = Math.min(0.32, (stock.halation + knobs.halation) / 180);
       ctx.filter = 'blur(18px) saturate(1.8)'; ctx.drawImage(video, 0, 0, w, h); ctx.restore();
