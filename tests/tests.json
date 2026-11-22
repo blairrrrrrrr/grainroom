@@ -56,7 +56,6 @@
   },
   {
     "name": "Film stocks have distinct rendering signatures",
-    "sanity": true,
     "viewport": "desktop",
     "covers": [
       "stock-specific channel response",
