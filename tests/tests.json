@@ -53,5 +53,27 @@
       "Leave the input LUT empty and choose a stock"
     ],
     "expected": "The Rec.709 clip can be processed without loading a camera LUT and the stock controls remain usable."
+  },
+  {
+    "name": "Film stocks have distinct rendering signatures",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "stock-specific channel response",
+      "negative and reversal tone curves",
+      "black-and-white spectral mixes",
+      "luminance-shaped deterministic film grain",
+      "highlight colour response"
+    ],
+    "description": "Checks that representative negative, slide, cinema, monochrome and instant stocks use distinct response signatures rather than a shared generic filter.",
+    "steps": [
+      "Open Video Lab and import a Rec.709 clip with skin, foliage, sky and bright highlights",
+      "Compare Kodak Portra 400, Gold 200 and Ektar 100",
+      "Compare Fujifilm Velvia 100F and Provia 400X",
+      "Compare Ilford HP5, Kodak T-Max 400 and Tri-X",
+      "Compare Vision3 50D, 250D and 500T",
+      "Pause on a frame and verify the grain is stable; play and verify grain evolves over time"
+    ],
+    "expected": "Each selected stock produces a visibly distinct palette and tonal response. Black-and-white stocks use different spectral mixes and grain character. The same paused frame remains deterministic while moving frames receive evolving grain."
   }
 ]
