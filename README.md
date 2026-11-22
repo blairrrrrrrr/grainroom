@@ -21,8 +21,9 @@ npm run preview
 
 - Photo grading with film-inspired stock profiles and image controls.
 - Video preview and browser-based WebM export.
-- 3D `.cube` camera input LUT import, validation, and trilinear interpolation.
-- Camera profile selection alone is not a calibrated transform. For log/HDR footage, load the correct technical input LUT.
+- Automatically generated, cached 17-point 3D creative LUT for every film stock, applied automatically when selected.
+- Stock-specific tone response, colour bias, monochrome spectral mixes, grain and highlight behaviour.
+- Built-in stock LUTs expect Rec.709 / standard display-referred input. Convert camera Log or HDR footage to Rec.709 before importing; camera-specific input transforms are not included yet.
 - MP4 export is not currently implemented.
 
 ## DaVinci Resolve / OpenFX
